@@ -47,6 +47,8 @@ const RARITY := [
 	{"name": "Uncommon", "w": 5.0, "col": "#75d78d"},
 	{"name": "Rare", "w": 1.8, "col": "#58b4ff"},
 	{"name": "Legendary", "w": 0.32, "col": "#f7c243"},
+	# Special visitors never spawn by weight. The game sends one in now and then.
+	{"name": "Special", "w": 0.0, "col": "#ff7ad9"},
 ]
 
 const WEATHER := {
@@ -86,6 +88,11 @@ const ACH := [
 	{"id": "gear", "name": "Fully Rigged", "desc": "Buy the best rod, reel and line", "r": 500},
 	{"id": "tackle", "name": "Tackle Box", "desc": "Own every bait", "r": 150},
 	{"id": "rich", "name": "Fishmonger", "desc": "Earn 10,000 coins", "r": 500},
+	{"id": "visitor", "name": "Rare Visitor", "desc": "Land a special visitor", "r": 300},
+	{"id": "visitor5", "name": "Guest Book", "desc": "Land 5 different special visitors", "r": 2000},
+	{"id": "contest", "name": "Contender", "desc": "Enter a fishing contest", "r": 25},
+	{"id": "champion", "name": "Champion", "desc": "Win a fishing contest", "r": 150},
+	{"id": "champion5", "name": "World Champion", "desc": "Win contests in 5 places", "r": 1000},
 ]
 
 

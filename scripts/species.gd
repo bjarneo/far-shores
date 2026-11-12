@@ -2,7 +2,7 @@ class_name Species
 extends RefCounted
 ## Every fish in the game. Each species lives in one place.
 ##
-## r is the rarity index into D.RARITY. w is the weight range in kg and l the length range in cm.
+## r is the rarity index into D.RARITY. Rarity 4 is a special visitor that comes now and then. w is the weight range in kg and l the length range in cm.
 ## depth is the band of the water column the fish uses, from 0 (surface) to 1 (bottom).
 ## fight is the pull of an average fish against the line. endur scales how long it keeps pulling.
 ## body holds the shape for Sprites. x positions on the body run from -1 (tail end) to 1 (snout).
@@ -355,7 +355,7 @@ static var ALL := {
 		"depth": [0.1, 0.6], "time": "dawn", "bait": ["worm", "spinner"], "fight": 0.35, "endur": 0.9, "jump": true,
 		"body": {"rx": 7.0, "ry": 2.3, "nose": 0.15, "taper": 0.5, "tl": 4, "tail": "fan", "spread": 0.65, "top": [[-0.2, 0.15, 2, 2], [-0.78, -0.7, 1, 1]], "bot": [[-0.55, -0.35, 2, 1]], "pect": [0.3, 2]},
 		"pal": {"b": "#4a6a4a", "s": "#c0c8b8", "u": "#f0f0e8", "f": "#8a9a80", "m": "#e06a80", "m2": "#1a2a1a"}, "pat": [["stripe", 0.0, 0.3], ["speckle", 0.0, 0.1]],
-		"desc": "The Gerrard rainbows of this lake are the largest in the world."},
+		"desc": "A pink stripe from gill to tail. It often leaps when hooked."},
 	"kokanee": {"name": "Kokanee", "latin": "Oncorhynchus nerka", "loc": "kootenay", "r": 0, "w": [0.2, 1.5], "l": [20, 45], "price": 10,
 		"depth": [0.15, 0.6], "time": "any", "bait": ["worm", "spinner"], "fight": 0.2, "endur": 0.6, "school": true,
 		"body": {"rx": 6.0, "ry": 1.9, "nose": 0.2, "taper": 0.5, "tl": 4, "tail": "fork", "spread": 0.7, "top": [[-0.2, 0.15, 2, 2], [-0.78, -0.7, 1, 1]], "bot": [[-0.55, -0.35, 1, 1]]},
@@ -530,6 +530,80 @@ static var ALL := {
 		"body": {"rx": 15.0, "ry": 4.0, "back": 1.05, "nose": 0.1, "taper": 0.55, "tl": 5, "tail": "fan", "spread": 0.7, "top": [[0.0, 0.3, 3, 2], [-0.65, -0.05, 3, 2]], "bot": [[-0.65, -0.1, 3, 2]], "teeth": true, "pect": [0.3, 5], "eye": 2},
 		"pal": {"b": "#3a3a40", "s": "#6a6a72", "u": "#a8a8b0", "f": "#2a2a30", "m": "#2a2a30"}, "pat": [["mottle", 0.25]],
 		"desc": "The top predator under the Antarctic ice. It grows for 50 years."},
+
+	# ---------- Special visitors ----------
+	# Rarity 4. These never spawn on their own. One swims into its place now and then and stays
+	# for a short time. Any bait works. "protect" sends the fish back to the water for a bounty.
+	"opah": {"name": "Opah", "latin": "Lampris guttatus", "loc": "lofoten", "r": 4, "w": [15.0, 70.0], "l": [80, 150], "price": 2400,
+		"depth": [0.15, 0.6], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.1, "endur": 2.0,
+		"body": {"rx": 10.0, "ry": 6.2, "nose": 0.0, "taper": 0.65, "tl": 5, "tail": "lunate", "spread": 0.95, "top": [[-0.55, 0.35, 2, 6, 0.4]], "bot": [[-0.55, -0.15, 2, 2]], "pect": [0.2, 5], "eyex": 0.62},
+		"pal": {"b": "#34468a", "s": "#c06a8a", "u": "#e8a0b0", "f": "#e0303a", "fd": "#e0303a", "ft": "#e0303a", "m": "#f4f0e8"}, "pat": [["spots", 0.14, 0.4]], "shine": true,
+		"desc": "The moonfish. It is the only fish that keeps its whole body warm. Few have ever been caught in Norway."},
+	"wels": {"name": "Wels Catfish", "latin": "Silurus glanis", "loc": "ness", "r": 4, "w": [20.0, 90.0], "l": [150, 250], "price": 2200,
+		"depth": [0.75, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.15, "endur": 2.4,
+		"body": {"rx": 20.0, "ry": 3.4, "nose": -0.35, "taper": 0.25, "tl": 4, "tail": "round", "spread": 0.6, "top": [[0.15, 0.25, 1, 1]], "bot": [[-0.95, 0.05, 2, 2]], "barbels": 2, "blen": 9, "pect": [0.5, 3], "eyex": 0.75},
+		"pal": {"b": "#2a3024", "s": "#5a5a40", "u": "#c8b890", "f": "#3a3a2a", "m": "#1e2018"}, "pat": [["mottle", 0.4]],
+		"desc": "Wels do not belong in Scotland. Some say a giant wels is the real monster of the loch."},
+	"swordfish": {"name": "Swordfish", "latin": "Xiphias gladius", "loc": "amalfi", "r": 4, "w": [50.0, 250.0], "l": [200, 400], "price": 2600,
+		"depth": [0.0, 0.7], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.3, "endur": 2.6, "jump": true,
+		"body": {"rx": 17.0, "ry": 3.6, "nose": 0.25, "taper": 0.85, "tl": 7, "tail": "lunate", "spread": 1.05, "top": [[0.3, 0.5, 1, 6, 0.3]], "bot": [[-0.6, -0.4, 2, 1, 0.4]], "bill": 13, "pect": [0.4, 5]},
+		"pal": {"b": "#2a2a3e", "s": "#6a6a80", "u": "#c8c4cc", "f": "#3a3a50", "m": "#4a4a60"}, "pat": [], "shine": true,
+		"desc": "Its long flat sword slashes through schools of squid. In the south of Italy it is the king of the summer sea."},
+	"goblin": {"name": "Goblin Shark", "latin": "Mitsukurina owstoni", "loc": "suruga", "r": 4, "w": [50.0, 200.0], "l": [250, 380], "price": 3200,
+		"depth": [0.85, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.0, "endur": 2.2,
+		"body": {"rx": 20.0, "ry": 3.4, "nose": 0.5, "taper": 0.55, "tl": 7, "tail": "shark", "spread": 0.6, "top": [[-0.15, 0.05, 2, 2], [-0.45, -0.3, 2, 2]], "bot": [[-0.4, -0.25, 2, 2]], "pect": [0.45, 4], "gill": 5, "fangs": true, "eyex": 0.7},
+		"pal": {"b": "#c88a8a", "s": "#e0a8a8", "u": "#f0d0d0", "f": "#b07070", "m": "#a06060"}, "pat": [],
+		"desc": "A pink shark from the deep. Its jaws shoot forward to grab prey. Deep Suruga Bay is one of the few places it lives."},
+	"gerrard": {"name": "Gerrard Rainbow Trout", "latin": "Oncorhynchus mykiss", "loc": "kootenay", "r": 4, "w": [8.0, 16.0], "l": [80, 110], "price": 2200,
+		"depth": [0.05, 0.5], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.0, "endur": 2.0, "jump": true,
+		"body": {"rx": 13.0, "ry": 4.0, "back": 1.1, "nose": 0.1, "taper": 0.5, "tl": 5, "tail": "fan", "spread": 0.7, "top": [[-0.2, 0.15, 3, 3], [-0.78, -0.7, 2, 1]], "bot": [[-0.55, -0.35, 2, 2]], "pect": [0.3, 3], "teeth": true},
+		"pal": {"b": "#3a5a4a", "s": "#c8ccc0", "u": "#f0f0e8", "f": "#8a9a80", "m": "#e8507a", "m2": "#1a2a1a"}, "pat": [["stripe", 0.0, 0.35], ["speckle", 0.0, 0.12]], "shine": true,
+		"desc": "A giant kind of rainbow trout that lives only in this lake. It grows huge on a diet of kokanee."},
+	"sawfish": {"name": "Smalltooth Sawfish", "latin": "Pristis pectinata", "loc": "keys", "r": 4, "w": [100.0, 300.0], "l": [300, 500], "price": 3600, "protect": true,
+		"depth": [0.85, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.2, "endur": 2.5,
+		"body": {"rx": 21.0, "ry": 3.0, "nose": 0.4, "taper": 0.6, "tl": 6, "tail": "shark", "spread": 0.6, "top": [[-0.05, 0.15, 2, 4], [-0.55, -0.45, 2, 3]], "bot": [], "pect": [0.5, 5], "bill": 14, "saw": true, "eyex": 0.7},
+		"pal": {"b": "#6a6a50", "s": "#8a8a6a", "u": "#e8e4d0", "f": "#5a5a44", "m": "#4a4a38"}, "pat": [],
+		"desc": "Its long saw has teeth on both sides and can sense the heartbeat of hidden prey. It is protected, so it goes back."},
+	"lungfish": {"name": "Marbled Lungfish", "latin": "Protopterus aethiopicus", "loc": "giza", "r": 4, "w": [5.0, 17.0], "l": [100, 200], "price": 2200,
+		"depth": [0.8, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 0.8, "endur": 2.0,
+		"body": {"rx": 18.0, "ry": 2.2, "nose": 0.2, "taper": 0.15, "tl": 3, "tail": "point", "wave": true, "top": [[-0.95, -0.1, 1, 1]], "bot": [[-0.95, -0.15, 1, 1]], "threads": true, "eyex": 0.8},
+		"pal": {"b": "#4a4a3a", "s": "#7a7a5a", "u": "#c8c0a0", "f": "#5a5a48", "m": "#2a2a20"}, "pat": [["mottle", 0.45]],
+		"desc": "It breathes air with real lungs. When the swamp dries out, it sleeps in the mud until the rain comes back."},
+	"cavefish": {"name": "Guilin Golden-line Fish", "latin": "Sinocyclocheilus guilinensis", "loc": "guilin", "r": 4, "w": [0.05, 0.25], "l": [10, 18], "price": 2400,
+		"depth": [0.7, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 0.3, "endur": 1.2,
+		"body": {"rx": 6.0, "ry": 2.4, "back": 1.25, "nose": 0.2, "taper": 0.5, "tl": 4, "tail": "fork", "spread": 0.8, "top": [[-0.1, 0.15, 2, 2]], "bot": [[-0.55, -0.35, 1, 1]], "barbels": 1, "blen": 3},
+		"pal": {"b": "#c89a3a", "s": "#e8c860", "u": "#f8ecc0", "f": "#e8d090", "m": "#b07a20"}, "pat": [["line"]], "shine": true,
+		"desc": "A golden fish from the flooded caves under the karst hills. Few people have ever seen one alive."},
+	"stingray": {"name": "Giant Freshwater Stingray", "latin": "Urogymnus polylepis", "loc": "ayutthaya", "r": 4, "w": [100.0, 300.0], "l": [200, 450], "price": 3800, "protect": true,
+		"depth": [0.92, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.3, "endur": 2.8,
+		"body": {"rx": 16.0, "ry": 3.0, "flat": true, "nose": 0.0, "taper": 0.85, "tl": 14, "tail": "point", "top": [], "bot": [], "eyex": 0.6},
+		"pal": {"b": "#6a5a48", "s": "#7a6a54", "u": "#e8e0d0", "f": "#5a4a3a", "m": "#4a3c2c"}, "pat": [["mottle", 0.2]],
+		"desc": "One of the largest river fish on Earth. It hides under the mud of the Chao Phraya. It is protected, so it goes back."},
+	"piraiba": {"name": "Piraiba", "latin": "Brachyplatystoma filamentosum", "loc": "amazon", "r": 4, "w": [50.0, 200.0], "l": [150, 360], "price": 3000,
+		"depth": [0.8, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.3, "endur": 2.7,
+		"body": {"rx": 22.0, "ry": 4.2, "nose": -0.3, "taper": 0.5, "tl": 7, "tail": "fork", "spread": 0.9, "top": [[0.0, 0.2, 5, 2], [-0.75, -0.55, 2, 1]], "bot": [[-0.6, -0.3, 3, 1]], "barbels": 3, "blen": 10, "pect": [0.35, 5], "eyex": 0.7},
+		"pal": {"b": "#3a4048", "s": "#7a828c", "u": "#e8ecee", "f": "#4a5058", "m": "#2a3038"}, "pat": [["spots", 0.06, 0.0]],
+		"desc": "The giant catfish of the Amazon. It swims thousands of kilometers up the river to spawn."},
+	"humphead": {"name": "Humphead Wrasse", "latin": "Cheilinus undulatus", "loc": "reef", "r": 4, "w": [20.0, 190.0], "l": [100, 230], "price": 3400, "protect": true,
+		"depth": [0.6, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.1, "endur": 2.2,
+		"body": {"rx": 13.0, "ry": 5.2, "back": 1.3, "nose": -0.2, "taper": 0.55, "tl": 5, "tail": "round", "spread": 0.9, "top": [[-0.7, 0.35, 2, 3]], "bot": [[-0.65, -0.2, 2, 3]], "pect": [0.25, 5], "eyex": 0.62},
+		"pal": {"b": "#2a6a6a", "s": "#3a8a8a", "u": "#7ac0b0", "f": "#3a7a7a", "m": "#1a4a4a", "m2": "#e8d080"}, "pat": [["facelines"], ["mottle", 0.15]],
+		"desc": "A gentle giant with thick lips. It eats the starfish that kill coral. It is protected, so it goes back."},
+	"giantbass": {"name": "Giant Sea Bass", "latin": "Stereolepis gigas", "loc": "cabo", "r": 4, "w": [100.0, 250.0], "l": [150, 250], "price": 3200, "protect": true,
+		"depth": [0.8, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 1.25, "endur": 2.6,
+		"body": {"rx": 17.0, "ry": 5.6, "back": 1.1, "nose": 0.0, "taper": 0.55, "tl": 5, "tail": "fan", "spread": 0.8, "top": [[0.0, 0.35, 3, 2], [-0.6, -0.05, 3, 2]], "bot": [[-0.6, -0.3, 3, 2]], "pect": [0.25, 5], "eye": 2},
+		"pal": {"b": "#2a2a2e", "s": "#4a4a52", "u": "#7a7a84", "f": "#2a2a30", "m": "#1a1a1e"}, "pat": [["spots", 0.1, 0.5]],
+		"desc": "A calm giant of the kelp forests that can live for 75 years. It is protected, so it goes back."},
+	"grenadier": {"name": "Roughhead Grenadier", "latin": "Macrourus berglax", "loc": "ilulissat", "r": 4, "w": [1.0, 5.0], "l": [50, 100], "price": 2400,
+		"depth": [0.85, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 0.6, "endur": 1.6,
+		"body": {"rx": 15.0, "ry": 3.0, "nose": 0.3, "taper": 0.05, "tl": 1, "tail": "point", "top": [[0.25, 0.5, 1, 4]], "bot": [[-1.0, 0.1, 1, 1]], "eye": 2, "eyex": 0.6, "headspines": true},
+		"pal": {"b": "#6a6a70", "s": "#9a9aa0", "u": "#c8c8cc", "f": "#7a7a80", "m": "#4a4a50"}, "pat": [],
+		"desc": "A deep-sea fish with huge eyes and a rat tail. It lives a kilometer down on the Greenland slope."},
+	"snailfish": {"name": "Antarctic Snailfish", "latin": "Careproctus georgianus", "loc": "antarctica", "r": 4, "w": [0.2, 1.0], "l": [15, 40], "price": 2600,
+		"depth": [0.88, 1.0], "time": "any", "bait": ["worm", "shrimp", "spinner", "jig", "plug"], "fight": 0.3, "endur": 1.5,
+		"body": {"rx": 8.0, "ry": 3.2, "nose": -0.3, "taper": 0.1, "tl": 2, "tail": "point", "wave": true, "top": [[-0.95, 0.2, 1, 1]], "bot": [[-0.95, -0.1, 1, 1]], "pect": [0.5, 3], "eyex": 0.75},
+		"pal": {"b": "#e8a0b8", "s": "#f0c0d0", "u": "#f8e0e8", "f": "#e8b0c4", "m": "#d080a0"}, "pat": [], "glass": true,
+		"desc": "A soft pink fish from the deep. Scientists find new kinds of snailfish here every few years."},
 }
 
 
@@ -544,6 +618,14 @@ static func of_place(loc: String) -> Array[String]:
 
 static func count() -> int:
 	return ALL.size()
+
+
+## The special visitor of a place, or "" if it has none.
+static func special_of(loc: String) -> String:
+	for k in ALL:
+		if ALL[k].loc == loc and ALL[k].r == 4:
+			return k
+	return ""
 
 
 static func legends() -> Array[String]:

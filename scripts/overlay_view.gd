@@ -6,7 +6,7 @@ extends Node2D
 var g: Game
 
 const DIG := {"0": "111101101101111", "1": "010110010010111", "2": "111001111100111", "3": "111001111001111", "4": "101101111001001",
-	"5": "111100111001111", "6": "111100111101111", "7": "111001001001001", "8": "111101111101111", "9": "111101111001111", "+": "000010111010000"}
+	"5": "111100111001111", "6": "111100111101111", "7": "111001001001001", "8": "111101111101111", "9": "111101111001111", "+": "000010111010000", ".": "000000000000010"}
 const BANG := ["1", "1", "1", "0", "1"]
 const QUERY := ["111", "001", "010", "000", "010"]
 const SHADOW := Color("#0b1120")
@@ -32,10 +32,43 @@ func _draw() -> void:
 		_glow_eyes(dark)
 	_beacons(dark)
 	_markers()
+	_rival_marks()
+	_sparkles()
 	_aim()
 	for p in g.pops:
 		var a := clampf(1.6 - p.t, 0.0, 1.0)
-		_text(p.txt, D.jr(p.x - p.txt.length() * 2), D.jr(p.y), Color(1, 0.827, 0.306, a), a)
+		var c: Color = p.get("col", Color(1, 0.827, 0.306))
+		_text(p.txt, D.jr(p.x - p.txt.length() * 2), D.jr(p.y), Color(c, a), a)
+
+
+## Twinkles around a special visitor, so the player can spot it.
+func _sparkles() -> void:
+	for f in g.fish:
+		if Species.ALL[f.sp].r != 4:
+			continue
+		var hs := g.fish_half(f)
+		for i in 5:
+			var k: float = fmod(g.T * 1.1 + i * 0.2 + f.ph, 1.0)
+			if k > 0.6:
+				continue
+			var ang: float = f.ph * 3.0 + i * 1.3 + floorf(g.T * 1.1 + i * 0.2) * 1.7
+			var x: int = D.jr(f.x + cos(ang) * (hs.x + 1.0))
+			var y: int = D.jr(f.y + sin(ang) * (hs.y + 1.0))
+			var c := Color("#fff0fa") if k < 0.3 else Color("#ff7ad9")
+			draw_rect(Rect2(x, y, 1, 1), c)
+			if k < 0.3:
+				draw_rect(Rect2(x - 1, y, 3, 1), Color(c, 0.6))
+				draw_rect(Rect2(x, y - 1, 1, 3), Color(c, 0.6))
+
+
+## A "!" over a rival who just hooked a fish.
+func _rival_marks() -> void:
+	if g.contest == null:
+		return
+	for r in g.contest.rivals:
+		if r.mark > 0.0 and not r.gone:
+			var c := Color("#ffd34e") if int(g.T * 10.0) % 2 == 0 else Color("#ff7a5a")
+			_icon(BANG, D.jr(r.x), g.SURF - 44, c)
 
 
 func _sky_ok(x: int, y: int) -> bool:

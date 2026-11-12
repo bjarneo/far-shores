@@ -289,10 +289,15 @@ static func _build_mask(sp: String, sz: int) -> Dictionary:
 	var mouth_y := floori(by + ry * 0.18)
 	if bill > 0:
 		var sy := floori(by)
+		# A saw is a thick bill with teeth on the top and bottom edges.
+		var saw: bool = P.get("saw", false)
 		for k in range(1, bill + 1):
 			_mset(g, w, h, snout + k, sy, 11)
-			if k < bill * 0.35:
+			if k < bill * 0.35 or saw:
 				_mset(g, w, h, snout + k, sy + 1, 11)
+			if saw and k > 1 and k % 2 == 0:
+				_mset(g, w, h, snout + k, sy - 1, 13)
+				_mset(g, w, h, snout + k, sy + 2, 13)
 	if trunk > 0:
 		for k in range(1, trunk + 1):
 			_mset(g, w, h, snout + floori(k * 0.75), mouth_y + floori(k * 0.6), 11)
@@ -1114,6 +1119,54 @@ static func angler_tex(climate: String, blink := false) -> ImageTexture:
 	var k := "angler_%s_%s" % [climate, blink]
 	if not _misc.has(k):
 		var pal: Dictionary = OUTFITS.get(climate, OUTFITS.warm)
+		var rows: Array = ANGLER_HATS[pal.hat] + ANGLER_BODY
+		if blink:
+			rows = rows.duplicate()
+			rows[9] = rows[9].replace("e", "S")
+		_misc[k] = ImageTexture.create_from_image(sprite_from(rows, pal))
+	return _misc[k]
+
+
+## Skin colors for rival anglers: the light and the shaded tone.
+const SKINS := [["#eab79c", "#c88a72"], ["#c8906a", "#a06a4a"], ["#8a5a3a", "#6a4028"], ["#f0c8a8", "#d0a088"]]
+
+
+## A rival angler: the outfit of the climate in other colors. The straw hat keeps its color.
+static func rival_tex(climate: String, coat: String, hat: String, skin: int, blink := false) -> ImageTexture:
+	var k := "rival_%s_%s_%s_%d_%s" % [climate, coat, hat, skin, blink]
+	if not _misc.has(k):
+		var pal: Dictionary = OUTFITS.get(climate, OUTFITS.warm).duplicate()
+		var c := Color(coat)
+		pal.j = c
+		pal.J = D.dark(c, 0.25)
+		pal.L = D.light(c, 0.3)
+		pal.z = D.dark(c, 0.5)
+		pal.v = D.dark(c, 0.1)
+		pal.V = D.dark(c, 0.3)
+		var hc := Color(hat)
+		match pal.hat:
+			"hood":
+				for key in ["h", "b", "k"]:
+					pal[key] = c
+				pal.H = D.dark(c, 0.25)
+				pal.K = D.dark(c, 0.35)
+				pal.l = D.light(c, 0.3)
+			"beanie":
+				pal.h = hc
+				pal.H = D.dark(hc, 0.25)
+				pal.k = D.dark(hc, 0.15)
+				pal.K = D.dark(hc, 0.35)
+			"cap":
+				pal.h = hc
+				pal.H = D.dark(hc, 0.25)
+				pal.l = D.light(hc, 0.3)
+			"straw":
+				# The straw stays. The hat band takes the hat color.
+				pal.k = hc
+				pal.K = D.dark(hc, 0.3)
+		var sk: Array = SKINS[clampi(skin, 0, SKINS.size() - 1)]
+		pal.s = sk[0]
+		pal.S = sk[1]
 		var rows: Array = ANGLER_HATS[pal.hat] + ANGLER_BODY
 		if blink:
 			rows = rows.duplicate()

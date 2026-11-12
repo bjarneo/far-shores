@@ -44,6 +44,7 @@ func _draw() -> void:
 		if f.get("jump", -1.0) < 0.0:
 			_fish(f, murk, wtop, wdeep)
 	_line_water()
+	_rival_water()
 	for b in g.bubbles:
 		var x := D.jr(b.x)
 		var y := D.jr(b.y)
@@ -59,6 +60,7 @@ func _draw() -> void:
 	_surface()
 	_surface_plants()
 	_penguins()
+	_rivals()
 	var boat: bool = g.place.platform in ["boat", "skiff", "felucca", "longtail", "raft"]
 	if not boat:
 		_platform()
@@ -599,3 +601,187 @@ func _weather() -> void:
 				if (x / 3 + y) % 2 == 0:
 					a *= 0.85
 				draw_rect(Rect2(x, y, 3, 1), Color(0.88, 0.9, 0.93, a))
+
+
+# ---------- contest rivals ----------
+
+## How many sprite rows the boat hides, so the rival stands, sits or kneels in it.
+const RIVAL_CUT := {"dinghy": 4, "row": 5, "canoe": 7, "kayak": 9, "ice": 0}
+const ROD_DARK := Color("#2a2e3a")
+
+
+## Where the parts of a rival are this frame.
+func _rival_geo(r: Dictionary, boat: String) -> Dictionary:
+	var bob := 0 if boat == "ice" else D.jr(sin(r.ph * 2.0) * 0.6)
+	var feet := g.SURF - 3 + bob
+	var cut: int = RIVAL_CUT.get(boat, 4)
+	var x := D.jr(r.x)
+	var ax := x - 8
+	var top := feet - (Sprites.ANGLER_H - cut)
+	var face: int = r.face
+	var hx: float = ax + (Sprites.ANGLER_HAND.x if face > 0 else Sprites.ANGLER_W - 1 - Sprites.ANGLER_HAND.x)
+	var sx: float = ax + (Sprites.ANGLER_SHOULDER.x if face > 0 else Sprites.ANGLER_W - 1 - Sprites.ANGLER_SHOULDER.x)
+	var hand := Vector2(hx, top + Sprites.ANGLER_HAND.y)
+	var shoulder := Vector2(sx, top + Sprites.ANGLER_SHOULDER.y)
+	# The rod angle in the rival's own frame: 0 points forward, PI / 2 points up.
+	var a := 1.05
+	if r.cast > 0.0:
+		a = 1.05 + 0.9 * sin((1.0 - r.cast / 0.55) * PI)
+	elif r.st == "fight":
+		a = 0.7
+	var tip := hand + Vector2(face * cos(a), -sin(a)) * 15.0
+	if r.st == "fight":
+		tip.y += 2.0
+	var wet: bool = r.st in ["sink", "wait", "lure_in", "fight", "reel"]
+	var lp := Vector2(r.lx, r.ly)
+	var entry := Vector2(r.lx, g.SURF)
+	if r.st == "fight" and boat != "ice" and absf(lp.y - tip.y) > 0.01:
+		entry = tip.lerp(lp, clampf((g.SURF - tip.y) / (lp.y - tip.y), 0.0, 1.0))
+	return {"x": x, "ax": ax, "top": top, "feet": feet, "cut": cut, "bob": bob, "hand": hand, "shoulder": shoulder, "tip": tip,
+		"wet": wet, "lp": lp, "entry": entry}
+
+
+func _rival_water() -> void:
+	var c: Contest = g.contest
+	if c == null:
+		return
+	for r in c.rivals:
+		if r.gone:
+			continue
+		var q := _rival_geo(r, c.boat)
+		if not q.wet:
+			continue
+		_curve(q.entry, q.lp, 0.0, LINE_WATER)
+		if r.st != "fight":
+			draw_rect(Rect2(D.jr(r.lx), D.jr(r.ly), 1, 1), Color("#e87890"))
+			draw_rect(Rect2(D.jr(r.lx), D.jr(r.ly) + 1, 1, 1), Color("#9aa0a8"))
+
+
+func _rivals() -> void:
+	var c: Contest = g.contest
+	if c == null:
+		return
+	for r in c.rivals:
+		if r.gone:
+			continue
+		var q := _rival_geo(r, c.boat)
+		var coat := Color(r.coat)
+		if c.boat == "ice":
+			var hx := D.jr(r.x + r.face * 7.0)
+			draw_rect(Rect2(hx - 3, g.SURF - 4, 7, 1), Color(1, 1, 1, 0.7))
+			draw_rect(Rect2(hx - 2, g.SURF - 3, 5, 4), Color("#16384f"))
+		var blink := fmod(g.T + r.ph, 4.1) < 0.12
+		var tex := Sprites.rival_tex(g.place.climate, r.coat, r.hat, r.skin, blink)
+		var vis: int = Sprites.ANGLER_H - q.cut
+		if r.face > 0:
+			draw_texture_rect_region(tex, Rect2(q.ax, q.top, Sprites.ANGLER_W, vis), Rect2(0, 0, Sprites.ANGLER_W, vis))
+		else:
+			draw_set_transform(Vector2(q.ax + Sprites.ANGLER_W, q.top), 0.0, Vector2(-1, 1))
+			draw_texture_rect_region(tex, Rect2(0, 0, Sprites.ANGLER_W, vis), Rect2(0, 0, Sprites.ANGLER_W, vis))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		var rowing: bool = r.st == "row" or r.st == "away"
+		# The arm to the rod hand.
+		var outline := Color("#1e1612")
+		var hand: Vector2 = q.hand
+		if rowing and c.boat != "ice":
+			hand = q.shoulder + Vector2(r.face * 2.0, 3.0 + sin(r.ph * 7.0) * 1.5)
+		var n := maxi(2, int(q.shoulder.distance_to(hand)))
+		for i in n:
+			var p: Vector2 = q.shoulder.lerp(hand, float(i) / n)
+			draw_rect(Rect2(floori(p.x), floori(p.y) - 1, 1, 1), outline)
+			draw_rect(Rect2(floori(p.x), floori(p.y), 1, 2), D.light(coat, 0.2))
+			draw_rect(Rect2(floori(p.x), floori(p.y) + 2, 1, 1), outline)
+		if rowing and c.boat != "ice":
+			# An oar or a paddle that dips in the water.
+			var dip := Vector2(hand.x - r.face * (3.0 + sin(r.ph * 7.0) * 4.0), g.SURF + 1)
+			_curve(hand, dip, 0.0, Color("#8a6440"))
+		else:
+			_rival_rod(q.hand, q.tip, r.bend)
+			_rival_line(r, q, c.boat)
+		draw_rect(Rect2(floori(hand.x) - 1, floori(hand.y) - 1, 3, 3), outline)
+		draw_rect(Rect2(floori(hand.x), floori(hand.y), 2, 2), Color(Sprites.SKINS[r.skin][0]))
+		if c.boat != "ice":
+			_rival_hull(q.x, q.feet, c.boat, coat)
+
+
+func _rival_rod(a: Vector2, b: Vector2, bend: float) -> void:
+	var dir := (b - a).normalized()
+	var perp := Vector2(dir.y, -dir.x)
+	var base := a - dir * 3.0
+	var mid := (base + b) * 0.5 - perp * bend * 2.5 + Vector2(0, bend * 2.0)
+	var n := int(base.distance_to(b) * 1.6)
+	var last := Vector2i(-999, -999)
+	for i in n + 1:
+		var t := float(i) / n
+		var p := base.lerp(mid, t).lerp(mid.lerp(b, t), t)
+		var q := Vector2i(floori(p.x), floori(p.y))
+		if q == last:
+			continue
+		last = q
+		var c := Color("#c89a62") if t < 0.22 else (ROD_DARK if t < 0.9 else Color("#e8e0c8"))
+		draw_rect(Rect2(q.x, q.y, 1, 1), c)
+
+
+func _rival_line(r: Dictionary, q: Dictionary, boat: String) -> void:
+	var tip: Vector2 = q.tip
+	if r.st == "land" and not r.catch.is_empty():
+		var k := minf(1.0, r.t / 0.6)
+		var hang := tip + Vector2(0, 6)
+		var p: Vector2 = q.entry.lerp(hang, k * k * (3.0 - 2.0 * k))
+		var m := Sprites.mask(r.catch.sp, r.catch.sz)
+		var tex := Sprites.fish_tex(r.catch.sp, r.catch.sz, int(g.T * 6.0) % 4)
+		_curve(tip, Vector2(p.x, p.y), 0.0, LINE_AIR)
+		draw_set_transform(Vector2(D.jr(p.x), D.jr(p.y + m.rx * 0.9)), -PI / 2.0 + sin(g.T * 6.0) * 0.25, Vector2.ONE)
+		draw_texture(tex, Vector2(-D.jr(m.bx), -D.jr(m.by) - 1))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	if not q.wet:
+		var bait := tip + Vector2(0, 4 + sin(g.T * 2.0 + r.ph) * 0.5)
+		_curve(tip, bait, 0.0, LINE_AIR)
+		draw_rect(Rect2(D.jr(bait.x), D.jr(bait.y), 1, 1), Color("#e87890"))
+		return
+	var e: Vector2 = q.entry
+	_curve(tip, e, 0.0 if r.st == "fight" else 3.0, LINE_AIR)
+	if r.st != "fight" and boat != "ice":
+		# A red and white float. It dips when a fish is close to the bait.
+		var dip := 0
+		if r.st == "lure_in":
+			var f = g.fish_by_id(r.fid)
+			if f != null and g.mouth_of(f).distance_to(q.lp) < 8.0:
+				dip = 1 if int(g.T * 8.0) % 2 == 0 else 0
+		var fx := D.jr(e.x)
+		var fy := g.SURF - 2 + dip + D.jr(sin(g.T * 2.2 + r.ph) * 0.4)
+		draw_rect(Rect2(fx, fy, 1, 1), Color("#f4f0e8"))
+		draw_rect(Rect2(fx - 1, fy + 1, 3, 1), Color("#e03a2a"))
+		draw_rect(Rect2(fx, fy + 2, 1, 1), Color("#a82a1e"))
+
+
+func _rival_hull(x: int, feet: int, boat: String, coat: Color) -> void:
+	var half := 11
+	var deep := 4
+	var hull := Color("#f0f0ec")
+	var stripe := coat
+	match boat:
+		"row":
+			half = 10
+			hull = WOOD_L
+			stripe = WOOD_D
+		"canoe":
+			half = 11
+			deep = 3
+			hull = Color("#7a5230")
+			stripe = Color("#4a3018")
+		"kayak":
+			half = 10
+			deep = 2
+			hull = coat
+			stripe = D.dark(coat, 0.35)
+	var x0 := x - half
+	var x1 := x + half
+	for xx in range(x0, x1 + 1):
+		var k := float(xx - x0) / (x1 - x0)
+		var d := deep if k > 0.1 and k < 0.9 else maxi(1, deep - 2)
+		var y := feet + (1 if (k < 0.04 or k > 0.96) and boat != "kayak" else 0)
+		draw_rect(Rect2(xx, y, 1, 1), D.dark(hull, 0.18))
+		draw_rect(Rect2(xx, y + 1, 1, d - 1), hull)
+		draw_rect(Rect2(xx, y + d, 1, 1), stripe)

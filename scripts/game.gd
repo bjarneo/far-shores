@@ -74,6 +74,16 @@ var _emit_t := 0.0
 var _tick_acc := 0.0
 var _creak_t := 0.0
 var _legend_hint := false
+## Seconds until the special visitor of this place swims in, and the id of the visitor in the water.
+var _visit_t := 200.0
+var visitor_id := -1
+## The current contest. It is null when no contest runs. The offer is the next contest at this place.
+var contest: Contest = null
+var _offer: Contest = null
+var _cup_cool := 0.0
+var cup_result := {}
+## Scene pixels at the right edge that rivals keep free for the scoreboard. The HUD sets it.
+var rival_margin := 0.0
 
 const FISH_MAX := 13
 
@@ -92,6 +102,7 @@ func start(view: Vector2, top_inset: float, bottom_inset: float) -> void:
 	_layout(true)
 	_new_weather(true)
 	_populate()
+	_reset_visit(true)
 	synth.warm(place.music)
 	_emit()
 
@@ -99,8 +110,9 @@ func start(view: Vector2, top_inset: float, bottom_inset: float) -> void:
 func _fresh_state() -> Dictionary:
 	return {"v": 1, "coins": 40, "total": 0, "utc": 6.4, "day": 1, "loc": "lofoten", "unlocked": {"lofoten": true}, "visited": {"lofoten": true},
 		"gear": {"rod": 0, "reel": 0, "line": 0}, "baits": {"worm": true}, "bait": "worm", "book": {}, "ach": {},
-		"stats": {"casts": 0, "caught": 0, "sold": 0, "released": 0, "snaps": 0, "lost": 0, "legend": 0, "night": 0, "dawn": 0, "rain": 0, "record": 0, "heavy": 0},
-		"tut": 0, "wx": "clear", "wx_t": 0.0}
+		"stats": {"casts": 0, "caught": 0, "sold": 0, "released": 0, "snaps": 0, "lost": 0, "legend": 0, "night": 0, "dawn": 0, "rain": 0, "record": 0, "heavy": 0,
+			"special": 0, "contests": 0, "wins": 0},
+		"cups": {}, "tut": 0, "wx": "clear", "wx_t": 0.0}
 
 
 func set_view(view: Vector2, top_inset: float, bottom_inset: float, scale := 1.0) -> void:
@@ -139,6 +151,8 @@ func _layout(force: bool) -> void:
 	BED = nBED
 	px_scale = fs
 	_build_place()
+	if contest != null and (old_w != W or old_surf != SURF):
+		contest.relayout(self, old_w)
 	if old_w != W or old_surf != SURF:
 		for f in fish:
 			f.x = clampf(f.x * W / maxf(1.0, old_w), -20, W + 20)
@@ -327,7 +341,7 @@ func _fish_target() -> int:
 	return clampi(D.jr(area / 2600.0), 6, FISH_MAX)
 
 
-func _spawn(inside: bool) -> void:
+func _spawn(inside: bool, force := "") -> void:
 	var pool := Species.of_place(loc)
 	var h := local_hours()
 	var wsum := 0.0
@@ -350,6 +364,8 @@ func _spawn(inside: bool) -> void:
 		if r <= 0.0:
 			sp = pool[i]
 			break
+	if force != "":
+		sp = force
 	var A: Dictionary = Species.ALL[sp]
 	var n := 1
 	if A.get("school", false):
@@ -413,7 +429,7 @@ func _update_fish(dt: float) -> void:
 	var night := is_night()
 	for i in range(fish.size() - 1, -1, -1):
 		var f: Dictionary = fish[i]
-		if f.st == "hooked":
+		if f.st == "hooked" or f.st == "rhook":
 			continue
 		var A: Dictionary = Species.ALL[f.sp]
 		var B: Dictionary = A.body
@@ -432,14 +448,23 @@ func _update_fish(dt: float) -> void:
 					f.tx = randf_range(PX + 6, W - 10)
 					var band := _band(f)
 					f.ty = randf_range(band.x, band.y)
+					# The special visitor is curious. It often swims over to look at the player's bait.
+					if f.id == visitor_id and lure_in and randf() < 0.6:
+						f.tx = clampf(lure.x + randf_range(-24, 24), PX + 6, W - 10)
+						f.wt = randf_range(2, 5)
 				if lure_in and lure.eng < 0 and f.cool <= 0.0 and phase == "sink":
 					_notice(f, dt)
 			"leave":
 				spd *= 1.2
 				f.ty = clampf(f.y, SURF + hs.y + 2, bed_at(f.x) - hs.y - 1)
 				if f.x < -36.0 or f.x > W + 36.0:
+					if f.id == visitor_id:
+						_visitor_gone()
 					fish.remove_at(i)
 					continue
+			"rlook":
+				# A rival's bait pulls this fish. The contest sets its target.
+				spd *= 1.2
 			"look":
 				if not lure_in or lure.eng != f.id:
 					_drop_interest(f)
@@ -522,6 +547,43 @@ func _update_fish(dt: float) -> void:
 		_spawn_t = randf_range(2.5, 6.0)
 		if fish.size() < _fish_target():
 			_spawn(false)
+	_update_visit(dt)
+
+
+# ---------- the special visitor ----------
+
+func _reset_visit(first: bool) -> void:
+	visitor_id = -1
+	_visit_t = randf_range(120.0, 300.0) if first else randf_range(240.0, 480.0)
+
+
+func _update_visit(dt: float) -> void:
+	if visitor_id >= 0:
+		if fish_by_id(visitor_id) == null:
+			_reset_visit(false)
+		return
+	_visit_t -= dt
+	if _visit_t > 0.0:
+		return
+	var sp := Species.special_of(loc)
+	if sp == "" or phase == "show":
+		_visit_t = 20.0
+		return
+	_spawn(false, sp)
+	var f: Dictionary = fish[-1]
+	f.life = 120.0
+	f.cool = 0.0
+	visitor_id = f.id
+	var nm: String = Species.ALL[sp].name if book_has(sp) else "a mystery fish"
+	toast.emit("A rare visitor is here: %s. It leaves again soon." % nm, "special")
+	synth.fanfare(2, false)
+
+
+func _visitor_gone() -> void:
+	var sp := Species.special_of(loc)
+	var nm: String = Species.ALL[sp].name if book_has(sp) else "The mystery fish"
+	toast.emit("%s swam away. It may come back later." % nm, "info")
+	_reset_visit(false)
 
 
 func _fish_jump(f: Dictionary) -> void:
@@ -535,12 +597,17 @@ func _fish_jump(f: Dictionary) -> void:
 
 
 func _sight(f: Dictionary) -> float:
-	return 30.0 + Species.ALL[f.sp].body.rx * 1.6
+	var d: float = 30.0 + Species.ALL[f.sp].body.rx * 1.6
+	return d * 1.8 if f.id == visitor_id else d
 
 
 func _interest(f: Dictionary) -> float:
 	var A: Dictionary = Species.ALL[f.sp]
 	var bait: String = S.bait
+	if A.r == 4:
+		# A special visitor takes any bait, but only near its depth.
+		var vb := _band(f)
+		return 1.4 if lure.y > vb.x - 16.0 and lure.y < vb.y + 16.0 else 0.4
 	var k := 1.0 if bait in A.bait else (0.3 if bait == "worm" else 0.12)
 	if bait == "plug":
 		if A.fight < 0.4:
@@ -610,7 +677,7 @@ func _say(text: String, t := 2.2) -> void:
 
 ## Called when the action button or the scene goes down.
 func action_down() -> void:
-	if S.is_empty():
+	if S.is_empty() or (contest != null and contest.st == "results"):
 		return
 	holding = true
 	match phase:
@@ -761,7 +828,7 @@ func _hook(f: Dictionary) -> void:
 	var off := Vector2(f.x, f.y) - landing
 	fight = {"id": f.id, "d": off.length(), "ten": 0.4, "strain": 0.0, "slack": 0.0, "stam": 1.0, "run": 0.0, "run_cd": randf_range(0.8, 2.0),
 		"ang": atan2(off.y, off.x), "tang": atan2(off.y, off.x), "turn_t": 1.5, "jump": -1.0, "dmax": Vector2(W - landing.x, BED - landing.y).length(),
-		"big": A.r >= 2 or A.fight > 0.7}
+		"big": A.r >= 2 or A.fight > 0.7, "cup": contest != null and contest.st == "on"}
 	if S.tut < 3:
 		S.tut = 3
 	synth.hook()
@@ -888,6 +955,8 @@ func _spat(f: Dictionary) -> void:
 
 func _land(f: Dictionary) -> void:
 	var A: Dictionary = Species.ALL[f.sp]
+	if fight.get("cup", false) and contest != null:
+		contest.add_mine(f.w)
 	phase = "land"
 	land_t = 0.0
 	fight = {}
@@ -915,6 +984,8 @@ func _land(f: Dictionary) -> void:
 		S.stats.rain += 1
 	if A.r == 3:
 		S.stats.legend += 1
+	if A.r == 4:
+		S.stats.special += 1
 	if f.wk >= 0.9:
 		S.stats.record += 1
 	if f.w >= 100.0:
@@ -922,7 +993,7 @@ func _land(f: Dictionary) -> void:
 	if S.tut < 4:
 		S.tut = 4
 	catch_info = {"sp": f.sp, "sz": f.sz, "name": A.name, "latin": A.latin, "w": f.w, "len": length, "price": price, "r": A.r, "new": is_new,
-		"record": record, "legend": A.r == 3, "desc": A.desc}
+		"record": record, "legend": A.r == 3, "special": A.r == 4, "release": A.r == 3 or A.get("protect", false), "desc": A.desc}
 	_splash(landing.x, 8)
 	synth.land()
 	_legend_hint = false if A.r == 3 else _legend_hint
@@ -953,7 +1024,7 @@ func sell_catch() -> void:
 	if catch_info.is_empty():
 		return
 	var p: int = catch_info.price
-	if catch_info.legend:
+	if catch_info.release:
 		S.stats.released += 1
 		_released_fish(catch_info)
 		_earn(p, "Bounty")
@@ -972,7 +1043,7 @@ func release_catch() -> void:
 		return
 	S.stats.released += 1
 	_released_fish(catch_info)
-	if catch_info.legend:
+	if catch_info.release:
 		_earn(catch_info.price, "Bounty")
 	synth.splash()
 	catch_info = {}
@@ -992,7 +1063,7 @@ func _released_fish(c: Dictionary) -> void:
 func _earn(n: int, label: String) -> void:
 	S.coins += n
 	S.total += n
-	pops.append({"x": tip.x, "y": tip.y - 4.0, "txt": "+" + str(n), "t": 0.0})
+	pops.append({"x": tip.x, "y": tip.y - 4.0, "txt": "+" + str(n), "t": 0.0, "col": Color(1, 0.827, 0.306)})
 	synth.coin()
 	if label != "":
 		toast.emit("%s +%d coins" % [label, n], "ach")
@@ -1140,6 +1211,7 @@ func _process(delta: float) -> void:
 	if phase == "land" or phase == "show":
 		_update_land(dt)
 	_update_fish(dt)
+	_update_contest(dt)
 	_update_fx(dt)
 	flash = maxf(0.0, flash - dt)
 	msg_t = maxf(0.0, msg_t - dt)
@@ -1167,6 +1239,92 @@ func _emit() -> void:
 
 func can_travel(k: String) -> bool:
 	return S.unlocked.has(k)
+
+
+# ---------- contests ----------
+
+## True when the player can join a contest at this place now.
+func contest_ready() -> bool:
+	return contest == null and _cup_cool <= 0.0
+
+
+## The contest that the player can join here. It stays the same until the player joins or travels.
+func contest_offer() -> Contest:
+	if _offer == null:
+		_offer = Contest.make_offer(loc, place, int(S.stats.contests))
+	return _offer
+
+
+func join_contest() -> void:
+	if not contest_ready():
+		return
+	var c := contest_offer()
+	if S.coins < c.fee:
+		toast.emit("You need %s coins to enter the contest." % D.fmt_int(c.fee), "info")
+		return
+	S.coins -= c.fee
+	S.stats.contests += 1
+	contest = c
+	_offer = null
+	cup_result = {}
+	contest.start(self)
+	synth.buy()
+	_say("The contest starts. Good luck!", 2.4)
+	toast.emit("%s. %s" % [Contest.KINDS[c.kind].name, Contest.KINDS[c.kind].rule], "contest")
+	save()
+	_emit()
+
+
+func _update_contest(dt: float) -> void:
+	_cup_cool = maxf(0.0, _cup_cool - dt)
+	if contest == null:
+		return
+	contest.update(self, dt)
+	if contest.st == "done":
+		contest = null
+		_cup_cool = 30.0
+
+
+## The contest calls this when the time runs out.
+func contest_horn() -> void:
+	_say("Time! Lines out of the water.", 2.6)
+	synth.fanfare(1, false)
+
+
+## The contest calls this when every fight is over. It works out the places and the prize.
+func contest_results() -> void:
+	var rows := contest.standings()
+	var rank := 1
+	for i in rows.size():
+		if rows[i].me:
+			rank = i + 1
+	var prize := contest.prize_for(rank)
+	var best: int = int(S.cups.get(loc, 99))
+	S.cups[loc] = mini(best, rank)
+	if rank == 1:
+		S.stats.wins += 1
+	cup_result = {"rank": rank, "prize": prize, "rows": rows, "kind": contest.kind}
+	synth.fanfare(3 if rank == 1 else 1, rank == 1)
+	save()
+	_emit()
+
+
+## Pays the prize and sends the rivals home.
+func collect_contest() -> void:
+	if contest == null or contest.st != "results":
+		return
+	var prize: int = cup_result.get("prize", 0)
+	if prize > 0:
+		_earn(prize, "Contest prize")
+	contest.st = "leave"
+	save()
+	_emit()
+
+
+## A short splash where a rival's bait lands.
+func rival_splash(x: float) -> void:
+	ripples.append({"x": x, "t": 0.0})
+	synth.splash_small()
 
 
 func unlock(k: String) -> bool:
@@ -1200,9 +1358,14 @@ func travel(k: String) -> void:
 	ripples.clear()
 	bubbles.clear()
 	_legend_hint = false
+	contest = null
+	cup_result = {}
+	_offer = null
+	_cup_cool = 0.0
 	_build_place()
 	_new_weather(true)
 	_populate()
+	_reset_visit(true)
 	synth.warm(place.music)
 	world_resized.emit()
 	place_changed.emit()
@@ -1275,6 +1438,9 @@ func cheat(n: int) -> void:
 
 func reset() -> void:
 	S = _fresh_state()
+	contest = null
+	_offer = null
+	cup_result = {}
 	loc = S.loc
 	place = Places.get_place(loc)
 	catch_info = {}
@@ -1282,6 +1448,7 @@ func reset() -> void:
 	_build_place()
 	_new_weather(true)
 	_populate()
+	_reset_visit(true)
 	world_resized.emit()
 	place_changed.emit()
 	save()
@@ -1396,6 +1563,24 @@ func _ach_met(id: String) -> bool:
 			return S.baits.size() >= D.BAIT_KEYS.size()
 		"rich":
 			return S.total >= 10000
+		"visitor":
+			return st.special >= 1
+		"visitor5":
+			var n := 0
+			for k in S.book:
+				if Species.ALL[k].r == 4:
+					n += 1
+			return n >= 5
+		"contest":
+			return st.contests >= 1
+		"champion":
+			return st.wins >= 1
+		"champion5":
+			var n := 0
+			for k in S.cups:
+				if int(S.cups[k]) == 1:
+					n += 1
+			return n >= 5
 	return false
 
 

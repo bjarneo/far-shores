@@ -78,10 +78,22 @@ var banner_sub: Label
 var banner_blurb: Label
 var _banner_t := 99.0
 var map: MapView
+var cup_chip: PxButton
+var cup_fee_l: Label
+var board: PanelContainer
+var board_time: Label
+var board_kind: Label
+var board_rows: VBoxContainer
+var _board_sig := ""
+var results: PanelContainer
+var res := {}
+var _res_sig := ""
+var _tags: Array = []
 var _country_box: HBoxContainer
 var _logo: Label
 
 const PANELS := [["shop", "Shop"], ["book", "Book"], ["awards", "Awards"]]
+const RANKS := ["1ST", "2ND", "3RD", "4TH"]
 const PANEL_BG := Color(14 / 255.0, 21 / 255.0, 38 / 255.0, 0.95)
 const BAR_BG := Color(11 / 255.0, 17 / 255.0, 32 / 255.0, 0.88)
 const WX_ICON := {"clear": "SUN", "cloud": "CLOUD", "rain": "RAIN", "snow": "SNOW", "fog": "FOG"}
@@ -277,10 +289,100 @@ func _build_middle() -> void:
 	fight_box.visible = false
 	middle.add_child(fight_box)
 
+	_build_contest_ui()
 	_build_card()
+	_build_results()
 	_build_drawer()
 	_build_bait_pop()
 	_build_banner()
+
+
+func _build_contest_ui() -> void:
+	cup_chip = PxButton.new("", null, 12, UI.TEXT, Color(BAR_BG, 0.92), Vector2(0, 32), Vector2(8, 4))
+	cup_chip.tooltip_text = "Join a fishing contest (C)"
+	var h := UI.hbox(6)
+	h.add_child(CupIcon.new())
+	var l := UI.label("CONTEST", UI.silk, 11, UI.GOLD_TEXT)
+	l.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(l)
+	cup_fee_l = UI.label("", UI.silk, 9, UI.MUTED)
+	cup_fee_l.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(cup_fee_l)
+	cup_chip.add_child(h)
+	cup_chip.pressed.connect(func(): _set_panel("" if panel == "contest" else "contest"))
+	cup_chip.visible = false
+	middle.add_child(cup_chip)
+
+	board = UI.px_panel(Color(BAR_BG, 0.92), UI.BORDER, 2, Vector4(10, 6, 10, 7))
+	board.mouse_filter = MOUSE_FILTER_IGNORE
+	board.custom_minimum_size.x = 176
+	var v := UI.vbox(3)
+	board.add_child(v)
+	var bh := UI.hbox(6)
+	bh.add_child(CupIcon.new())
+	var bt := UI.label("CONTEST", UI.silk, 10, UI.GOLD_TEXT)
+	bt.size_flags_vertical = SIZE_SHRINK_CENTER
+	bh.add_child(bt)
+	bh.add_child(UI.spacer())
+	board_time = UI.label("", UI.silk, 12)
+	board_time.size_flags_vertical = SIZE_SHRINK_CENTER
+	bh.add_child(board_time)
+	v.add_child(bh)
+	board_kind = UI.label("", UI.silk, 9, UI.MUTED)
+	v.add_child(board_kind)
+	board_rows = UI.vbox(1)
+	v.add_child(board_rows)
+	board.visible = false
+	middle.add_child(board)
+
+
+func _build_results() -> void:
+	results = UI.px_panel(PANEL_BG, UI.GOLD, 3, Vector4(18, 14, 18, 14))
+	var v := UI.vbox(8)
+	results.add_child(v)
+	res.head = UI.label("CONTEST RESULTS", UI.silk, 13, UI.GOLD_TEXT)
+	res.head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(res.head)
+	res.kind = UI.label("", UI.pix_bold, 20)
+	res.kind.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(res.kind)
+	res.rows = UI.vbox(4)
+	v.add_child(res.rows)
+	res.text = UI.wrap_label("", UI.pix, 14, UI.SUB)
+	res.text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(res.text)
+	res.btn = PxButton.new("COLLECT", UI.silk, 13, UI.BG, UI.GOLD, Vector2(180, 42), Vector2(14, 8))
+	res.btn.size_flags_horizontal = SIZE_SHRINK_CENTER
+	res.btn.pressed.connect(func(): g.collect_contest(); _refresh())
+	v.add_child(res.btn)
+	results.visible = false
+	middle.add_child(results)
+
+
+## One row of a contest table: place, flag, name and score.
+func _cup_row(rank: int, row: Dictionary, c: Contest, fs: int) -> HBoxContainer:
+	var h := UI.hbox(6)
+	var col := UI.AQUA if row.me else UI.TEXT
+	var rl := UI.label(RANKS[clampi(rank - 1, 0, 3)], UI.silk, fs - 3, UI.GOLD_TEXT if rank == 1 else UI.MUTED)
+	rl.custom_minimum_size.x = fs * 2.2
+	rl.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(rl)
+	var fl := TextureRect.new()
+	fl.custom_minimum_size = Vector2(Sprites.FLAG_W, Sprites.FLAG_H)
+	fl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fl.texture_filter = TEXTURE_FILTER_NEAREST
+	fl.size_flags_vertical = SIZE_SHRINK_CENTER
+	fl.mouse_filter = MOUSE_FILTER_IGNORE
+	if row.flag != "":
+		fl.texture = Sprites.flag_tex(row.flag)
+	h.add_child(fl)
+	var nl := UI.clip(UI.label(row.name, UI.pix_bold if row.me else UI.pix, fs, col))
+	nl.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(nl)
+	var sl := UI.label(c.fmt(row.score), UI.silk, fs - 3, col)
+	sl.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(sl)
+	return h
 
 
 func _build_card() -> void:
@@ -482,6 +584,9 @@ func _set_panel(k: String) -> void:
 
 
 func open_map() -> void:
+	if g.contest != null and g.contest.st in ["on", "horn", "results"]:
+		g.toast.emit("Finish the contest first. Then you can travel.", "info")
+		return
 	_set_panel("")
 	display.cancel()
 	map.open()
@@ -551,12 +656,17 @@ func _unhandled_input(e: InputEvent) -> void:
 		return
 	match e.keycode:
 		KEY_ENTER, KEY_KP_ENTER:
-			if card.visible:
+			if results.visible:
+				g.collect_contest()
+				_refresh()
+			elif card.visible:
 				g.sell_catch()
 				_refresh()
+		KEY_C:
+			_set_panel("" if panel == "contest" else "contest")
 		KEY_R:
 			if card.visible:
-				if g.catch_info.legend:
+				if g.catch_info.release:
 					g.sell_catch()
 				else:
 					g.release_catch()
@@ -610,7 +720,8 @@ func _on_toast(text: String, kind: String) -> void:
 	if card.visible and (narrow or short):
 		_toast_wait.append([text, kind])
 		return
-	var colors := {"good": UI.GOOD, "bad": UI.BAD, "ach": UI.GOLD, "new": UI.AQUA, "info": UI.INFO, "legend": UI.GOLD}
+	var colors := {"good": UI.GOOD, "bad": UI.BAD, "ach": UI.GOLD, "new": UI.AQUA, "info": UI.INFO, "legend": UI.GOLD,
+		"special": Color("#ff7ad9"), "contest": UI.AQUA}
 	var box := UI.px_panel(Color(15 / 255.0, 23 / 255.0, 41 / 255.0, 0.96), colors.get(kind, UI.INFO), 3, Vector4(16, 9, 16, 9))
 	box.mouse_filter = MOUSE_FILTER_IGNORE
 	box.size_flags_horizontal = SIZE_SHRINK_CENTER
@@ -676,6 +787,9 @@ func _refresh_card() -> void:
 	card.add_theme_stylebox_override("panel", UI.px_box(PANEL_BG, rc if c.r > 0 else UI.BORDER, 3, Vector4(18, 16, 18, 16)))
 	cr.head.text = "NEW SPECIES!" if c.new else ("NEW RECORD!" if c.record else "NICE CATCH")
 	cr.head.add_theme_color_override("font_color", UI.AQUA if c.new else (UI.GOLD_TEXT if c.record else UI.MUTED))
+	if c.special:
+		cr.head.text = "RARE VISITOR!"
+		cr.head.add_theme_color_override("font_color", rc)
 	cr.tex.texture = Sprites.fish_tex(c.sp, c.sz, int(_clock * 4.0) % 4)
 	cr.name.text = c.name
 	cr.latin.text = c.latin
@@ -684,17 +798,24 @@ func _refresh_card() -> void:
 	cr.weight.text = D.fmt_kg(c.w)
 	cr.length.text = "%d cm" % roundi(c.len)
 	cr.desc.text = c.desc
-	if c.legend:
+	if c.release:
 		cr.sell.set_text("RELEASE +%s" % D.fmt_int(c.price))
 		cr.release.visible = false
-		cr.desc.text = c.desc + " Legends go back to the water. The fishing club pays a bounty."
+		if c.legend:
+			cr.desc.text = c.desc + " Legends go back to the water. The fishing club pays a bounty."
+		else:
+			cr.desc.text = c.desc + " The fishing club pays a bounty."
 	else:
 		cr.sell.set_text("SELL +%s" % D.fmt_int(c.price))
 		cr.release.visible = true
 
 
 func _panel_sig() -> String:
-	return "%s|%d|%s|%s|%d|%d|%s|%s|%s" % [panel, g.S.coins, str(g.S.gear), str(g.S.baits.keys()), g.S.book.size(), g.S.ach.size(), g.S.bait, _book_loc, _reset_arm]
+	var cup := ""
+	if panel == "contest":
+		var c := g.contest
+		cup = "none|%d" % ceili(g._cup_cool) if c == null else "%s|%d|%s" % [c.st, ceili(c.t), str(c.standings().map(func(r): return r.score))]
+	return "%s|%d|%s|%s|%d|%d|%s|%s|%s|%s" % [panel, g.S.coins, str(g.S.gear), str(g.S.baits.keys()), g.S.book.size(), g.S.ach.size(), g.S.bait, _book_loc, _reset_arm, cup]
 
 
 func _refresh_drawer() -> void:
@@ -718,6 +839,9 @@ func _refresh_drawer() -> void:
 		"awards":
 			drawer_title.text = "AWARDS  %d/%d" % [g.S.ach.size(), D.ACH.size()]
 			_build_awards()
+		"contest":
+			drawer_title.text = "FISHING CONTEST"
+			_build_contest()
 	if narrow:
 		var tabs := UI.hbox(6)
 		for p in PANELS:
@@ -883,6 +1007,9 @@ func _build_book() -> void:
 		v.add_child(UI.label(D.RARITY[A.r].name.to_upper(), UI.silk, 9, rc))
 		var bait_names: Array = A.bait.map(func(b): return D.BAITS[b].name)
 		var info := "%s · %s\n%s" % [D.time_label(A.time), D.depth_label(A.depth), ", ".join(bait_names)]
+		if A.r == 4:
+			bait_names = ["Any bait"]
+			info = "Visits now and then\n%s · Any bait" % D.depth_label(A.depth)
 		if caught:
 			info = "Caught %d · best %s\n%s" % [e.n, D.fmt_kg(e.best), ", ".join(bait_names)]
 		var il := UI.wrap_label(info, UI.pix, 12, UI.SUB if caught else UI.MUTED)
@@ -890,6 +1017,66 @@ func _build_book() -> void:
 		grid.add_child(cell)
 	var tot := UI.label("All places: %d of %d species" % [g.S.book.size(), Species.count()], UI.silk, 10, UI.MUTED)
 	drawer_body.add_child(tot)
+
+
+func _build_contest() -> void:
+	var running := g.contest != null
+	if not running and not g.contest_ready():
+		drawer_body.add_child(UI.wrap_label("The next contest starts soon. Come back in %d seconds." % ceili(g._cup_cool), UI.pix, 14, UI.SUB))
+		return
+	var c: Contest = g.contest if running else g.contest_offer()
+	var K: Dictionary = Contest.KINDS[c.kind]
+	drawer_body.add_child(UI.label(K.name, UI.pix_bold, 20, UI.GOLD_TEXT))
+	drawer_body.add_child(UI.wrap_label("%s Rival anglers fish the same water as you, so be quick." % K.rule, UI.pix, 14, UI.SUB))
+	if running:
+		_section("STANDINGS")
+		var rows := c.standings()
+		for i in rows.size():
+			drawer_body.add_child(_cup_row(i + 1, rows[i], c, 15))
+		var left := "%d:%02d left" % [floori(c.t / 60.0), int(c.t) % 60] if c.st == "on" else "Time is up."
+		drawer_body.add_child(UI.label(left.to_upper(), UI.silk, 11, UI.MUTED))
+		return
+	drawer_body.add_child(UI.label("%d MINUTES  ·  %d RIVALS  ·  ENTRY %s" % [roundi(Contest.LENGTH / 60.0), c.rivals.size(), D.fmt_int(c.fee)], UI.silk, 10, UI.MUTED))
+	_section("PRIZES")
+	drawer_body.add_child(UI.label("1ST  %s     2ND  %s     3RD  %s" % [D.fmt_int(c.prize_for(1)), D.fmt_int(c.prize_for(2)), D.fmt_int(c.prize_for(3))], UI.silk, 11, UI.GOLD_TEXT))
+	_section("RIVALS")
+	for r in c.rivals:
+		var row := UI.px_panel(UI.BTN, UI.BORDER, 2, Vector4(10, 6, 10, 6))
+		row.mouse_filter = MOUSE_FILTER_PASS
+		var h := UI.hbox(8)
+		row.add_child(h)
+		var fl := TextureRect.new()
+		fl.texture = Sprites.flag_tex(r.flag)
+		fl.custom_minimum_size = Vector2(22, 14)
+		fl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fl.texture_filter = TEXTURE_FILTER_NEAREST
+		fl.size_flags_vertical = SIZE_SHRINK_CENTER
+		fl.mouse_filter = MOUSE_FILTER_IGNORE
+		h.add_child(fl)
+		var nl := UI.clip(UI.label(r.name, UI.pix_bold, 15))
+		nl.size_flags_vertical = SIZE_SHRINK_CENTER
+		h.add_child(nl)
+		var sk := UI.label("SKILL", UI.silk, 9, UI.MUTED)
+		sk.size_flags_vertical = SIZE_SHRINK_CENTER
+		h.add_child(sk)
+		var bar := UI.Bar.new(6, true)
+		bar.custom_minimum_size.x = 60
+		bar.size_flags_vertical = SIZE_SHRINK_CENTER
+		var k := clampf((r.skill - 0.5) / 0.85, 0.05, 1.0)
+		bar.set_value(k, UI.GOOD if k < 0.4 else (UI.WARN if k < 0.75 else UI.BAD))
+		h.add_child(bar)
+		drawer_body.add_child(row)
+	var best: int = int(g.S.cups.get(g.loc, 0))
+	var bl := "Your best result here: %s." % RANKS[clampi(best - 1, 0, 3)].to_lower() if best > 0 else "You have not fished a contest here yet."
+	drawer_body.add_child(UI.label(bl, UI.pix, 14, UI.SUB))
+	var can: bool = g.S.coins >= c.fee
+	var b := PxButton.new("JOIN FOR %s" % D.fmt_int(c.fee) if can else "YOU NEED %s COINS" % D.fmt_int(c.fee), UI.silk, 12, UI.BG if can else UI.MUTED, UI.GOLD if can else UI.BTN2, Vector2(0, 42), Vector2(14, 8))
+	b.mouse_filter = MOUSE_FILTER_PASS
+	b.pressed.connect(func():
+		if g.S.coins >= c.fee:
+			_set_panel("")
+		g.join_contest())
+	drawer_body.add_child(b)
 
 
 func _book_step(d: int) -> void:
@@ -956,8 +1143,11 @@ func _process(dt: float) -> void:
 		_apply_mode()
 	if _full_ok:
 		_full_icon.set_on(DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN)
+	# Rivals keep clear of the scoreboard on a short screen. Set this before the world can change size.
+	g.rival_margin = (board.custom_minimum_size.x + 24.0) / maxf(1.0, g.px_scale) if short else 0.0
 	g.set_view(size, top_inset(), bottom_inset(), ui_scale())
-	display.blocked = map.visible or (narrow and drawer.visible) or card.visible
+	display.blocked = map.visible or (narrow and drawer.visible) or card.visible or results.visible
+	_update_contest_ui()
 	_update_action()
 	_update_fight()
 	_update_hover()
@@ -1011,6 +1201,83 @@ func _apply_mode() -> void:
 	_refresh()
 
 
+func _update_contest_ui() -> void:
+	var c := g.contest
+	var cover := map.visible or (narrow and drawer.visible)
+	cup_chip.visible = g.contest_ready() and not cover and not card.visible and g.phase != "fight"
+	if cup_chip.visible:
+		cup_fee_l.text = "ENTRY %s" % D.fmt_int(g.contest_offer().fee)
+	var live := c != null and (c.st == "on" or c.st == "horn")
+	board.visible = live and not cover and not card.visible
+	if board.visible:
+		board_time.text = "%d:%02d" % [floori(c.t / 60.0), int(c.t) % 60] if c.st == "on" else "TIME"
+		board_time.add_theme_color_override("font_color", UI.BAD if c.t < 30.0 and int(_clock * 2.0) % 2 == 0 else UI.TEXT)
+		board_kind.text = Contest.KINDS[c.kind].name.to_upper()
+		board_kind.visible = not narrow
+		var rows := c.standings()
+		var sig := str(rows.map(func(r): return [r.name, r.score]))
+		if sig != _board_sig:
+			_board_sig = sig
+			for ch in board_rows.get_children():
+				ch.queue_free()
+			for i in rows.size():
+				board_rows.add_child(_cup_row(i + 1, rows[i], c, 13))
+	# The result card.
+	var show_res := c != null and c.st == "results" and not g.cup_result.is_empty()
+	results.visible = show_res and not map.visible
+	if results.visible:
+		var cr2: Dictionary = g.cup_result
+		var sig2 := str(cr2.rows.map(func(r): return [r.name, r.score]))
+		if sig2 != _res_sig:
+			_res_sig = sig2
+			_set_panel("")
+			res.kind.text = Contest.KINDS[cr2.kind].name
+			for ch in res.rows.get_children():
+				ch.queue_free()
+			for i in cr2.rows.size():
+				res.rows.add_child(_cup_row(i + 1, cr2.rows[i], c, 16))
+			var rank: int = cr2.rank
+			var prize: int = cr2.prize
+			if rank == 1:
+				res.text.text = "You won the contest. The prize is %s coins." % D.fmt_int(prize)
+			elif prize > 0:
+				res.text.text = "You came %s. The prize is %s coins." % [RANKS[rank - 1].to_lower(), D.fmt_int(prize)]
+			else:
+				res.text.text = "You came %s. No prize this time. Try a bigger bait." % RANKS[clampi(rank - 1, 0, 3)].to_lower()
+			res.head.text = "YOU WIN!" if rank == 1 else "CONTEST RESULTS"
+			res.btn.set_text("COLLECT +%s" % D.fmt_int(prize) if prize > 0 else "CLOSE")
+	else:
+		_res_sig = ""
+	# Name tags over the rivals.
+	var n := c.rivals.size() if c != null and not cover and not results.visible and not card.visible else 0
+	while _tags.size() < n:
+		var tag := UI.px_panel(Color(BAR_BG, 0.8), UI.BORDER, 1, Vector4(4, 1, 4, 2))
+		tag.mouse_filter = MOUSE_FILTER_IGNORE
+		var tl := UI.label("", UI.silk, 9, UI.TEXT)
+		tag.add_child(tl)
+		add_child(tag)
+		move_child(tag, 0)
+		_tags.append(tag)
+	for i in _tags.size():
+		var tag: PanelContainer = _tags[i]
+		if i >= n or c.rivals[i].gone:
+			tag.visible = false
+			continue
+		var r: Dictionary = c.rivals[i]
+		var tl: Label = tag.get_child(0)
+		if tl.text != r.name.to_upper():
+			tl.text = r.name.to_upper()
+		tag.visible = true
+		tag.size = Vector2.ZERO
+		var sz := tag.get_combined_minimum_size()
+		var cut: int = SceneView.RIVAL_CUT.get(c.boat, 4)
+		var sp := display.world_to_screen(Vector2(r.x, g.SURF - 3 - (Sprites.ANGLER_H - cut) - 3))
+		tag.position = Vector2(clampf(sp.x - sz.x * 0.5, 2.0, size.x - sz.x - 2.0), sp.y - sz.y)
+		# A tag under the scoreboard is hidden. The scoreboard lists the names too.
+		if board.visible and Rect2(tag.position, sz).intersects(Rect2(board.global_position - global_position, board.size)):
+			tag.visible = false
+
+
 func _update_action() -> void:
 	var lbl: String = snap.get("action", "HOLD TO CAST")
 	var col := UI.TEXT
@@ -1054,7 +1321,7 @@ func _update_fight() -> void:
 		return
 	var A: Dictionary = Species.ALL[f.sp]
 	var known := g.book_has(f.sp)
-	fight_name.text = A.name if known else ("Something huge!" if A.r == 3 else "Something big..." if g.fight.big else "???")
+	fight_name.text = A.name if known else ("A rare visitor!" if A.r == 4 else "Something huge!" if A.r == 3 else "Something big..." if g.fight.big else "???")
 	fight_dist.text = "%d M" % roundi(g.fight.d / D.PX_PER_M)
 	tension.set_values(g.fight.ten, g.fight.strain, _clock)
 	var stam: float = g.fight.stam
@@ -1119,6 +1386,19 @@ func _layout_middle(dt: float) -> void:
 			l.custom_minimum_size.x = w
 	toast_box.size = Vector2(mw - (dw if not narrow else 0.0), 0)
 	toast_box.position = Vector2(0, 0)
+	# The contest button sits top left. The scoreboard sits top right of the free space.
+	var bw0 := 0.0
+	if cup_chip.visible:
+		cup_chip.size = cup_chip.get_combined_minimum_size()
+		cup_chip.position = Vector2(0, 0)
+	if board.visible:
+		var bs0 := board.get_combined_minimum_size()
+		board.size = bs0
+		bw0 = bs0.x
+		var fw0 := mw - (dw + 12.0 if dw > 0.0 and not narrow else 0.0)
+		board.position = Vector2(fw0 - bs0.x, 0)
+		if narrow:
+			toast_box.position.y = bs0.y + 6.0
 	var free_w := mw - (dw + 12.0 if dw > 0.0 and not narrow else 0.0)
 	# Message in the upper middle.
 	msg_l.visible = g.msg_t > 0.0
@@ -1130,6 +1410,8 @@ func _layout_middle(dt: float) -> void:
 	# Fight meter at the bottom.
 	if fight_box.visible:
 		var fw := minf(420.0, free_w)
+		if short and board.visible:
+			fw = minf(fw, free_w - 2.0 * (bw0 + 8.0))
 		fight_box.size = Vector2(fw, 0)
 		var fs := fight_box.get_combined_minimum_size()
 		fight_box.size = Vector2(fw, fs.y)
@@ -1160,6 +1442,17 @@ func _layout_middle(dt: float) -> void:
 			var top := middle.global_position.y - global_position.y
 			cy = maxf(4.0 - top, (size.y - cs.y) * 0.5 - top)
 		card.position = Vector2((mw - cw) * 0.5, cy)
+	# Contest results in the center.
+	if results.visible:
+		var rw := minf(380.0, mw - 16.0)
+		results.size = Vector2(rw, 0)
+		var rs := results.get_combined_minimum_size()
+		results.size = Vector2(rw, rs.y)
+		var ry := (mh - rs.y) * 0.5
+		if rs.y > mh:
+			var top := middle.global_position.y - global_position.y
+			ry = maxf(4.0 - top, (size.y - rs.y) * 0.5 - top)
+		results.position = Vector2((mw - rw) * 0.5, ry)
 	# Bait picker above the bait button.
 	if bait_pop.visible:
 		var bs := bait_pop.get_combined_minimum_size()
@@ -1168,7 +1461,7 @@ func _layout_middle(dt: float) -> void:
 		bait_pop.position = Vector2(clampf(bx, 0.0, mw - bs.x), maxf(mh - bs.y, 4.0 - (middle.global_position.y - global_position.y)))
 	# Arrival banner. It fades out early when the player starts to fish or opens a panel.
 	_banner_t += dt
-	var busy := drawer.visible or card.visible or bait_pop.visible or toast_box.get_child_count() > 0 or g.phase != "idle"
+	var busy := drawer.visible or card.visible or results.visible or bait_pop.visible or toast_box.get_child_count() > 0 or g.phase != "idle"
 	if busy and _banner_t > 0.4 and _banner_t < 4.2:
 		_banner_t = 4.2
 	banner.visible = _banner_t < 5.0 and not map.visible
@@ -1312,3 +1605,28 @@ class FullIcon:
 					d = -d
 				draw_line(p, p + Vector2(d.x * arm, 0.0), UI.TEXT, 2.0)
 				draw_line(p, p + Vector2(0.0, d.y * arm), UI.TEXT, 2.0)
+
+
+## A small gold trophy.
+class CupIcon:
+	extends Control
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(12, 12)
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var g1 := UI.GOLD
+		var g2 := D.dark(UI.GOLD, 0.3)
+		draw_rect(Rect2(2, 0, 8, 1), g1)
+		draw_rect(Rect2(2, 1, 8, 4), g1)
+		draw_rect(Rect2(3, 5, 6, 1), g1)
+		draw_rect(Rect2(8, 1, 1, 4), g2)
+		draw_rect(Rect2(0, 1, 2, 1), g1)
+		draw_rect(Rect2(0, 2, 1, 2), g1)
+		draw_rect(Rect2(10, 1, 2, 1), g1)
+		draw_rect(Rect2(11, 2, 1, 2), g1)
+		draw_rect(Rect2(5, 6, 2, 3), g2)
+		draw_rect(Rect2(3, 9, 6, 2), g1)
+		draw_rect(Rect2(3, 1, 1, 2), Color(1, 1, 1, 0.6))

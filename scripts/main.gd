@@ -4,7 +4,8 @@ extends Control
 ##
 ## Debug flags after "--": --loc=KEY, --hour=H, --wx=KEY, --cast=POWER, --fresh, --coins=N,
 ## --shot=PATH (saves a screenshot and quits), --frames=N, --sheet=PATH (saves every fish sprite), --map,
-## --perf (prints the frame rate and the script time every 5 seconds).
+## --perf (prints the frame rate and the script time every 5 seconds), --contest (joins a contest),
+## --visit (sends in the special visitor now).
 
 var game: Game
 var synth: Synth
@@ -124,6 +125,10 @@ var _auto_log := {}
 
 func _autoplay(dt: float) -> void:
 	_auto_t += dt
+	if game.contest != null and game.contest.st == "results":
+		var rows: Array = game.cup_result.rows.map(func(r): return "%s %s" % [r.name, game.contest.fmt(r.score)])
+		print("CONTEST %s  place %d  prize %d  %s" % [game.contest.kind, game.cup_result.rank, game.cup_result.prize, ", ".join(rows)])
+		game.collect_contest()
 	match game.phase:
 		"idle":
 			if game.holding:
@@ -194,6 +199,13 @@ func _apply_debug() -> void:
 		game.holding = false
 		game._update_rod(0.1)
 		game._cast()
+	if _args.has("speed") and not _args.has("autoplay"):
+		Engine.time_scale = float(_args.speed)
+	if _args.has("visit"):
+		game._visit_t = 0.0
+	if _args.has("contest"):
+		game.S.coins = maxi(game.S.coins, game.contest_offer().fee)
+		game.join_contest()
 	if _args.has("map"):
 		hud.open_map()
 	if _args.has("panel"):
@@ -213,7 +225,7 @@ func _apply_debug() -> void:
 			f = x
 			break
 		if f == null and _args.has("sp"):
-			game._spawn(true)
+			game._spawn(true, _args.sp)
 			f = game.fish[-1]
 		if f != null:
 			game.lure.st = "water"

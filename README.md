@@ -1,6 +1,6 @@
 # Far Shores
 
-Far Shores is a pixel-art fishing game for Godot 4.7. You travel to 14 places around the world and catch the fish that live there. Each place has its own scenery, water, weather, music and 6 or 7 real species. The game uses the engine of Little Reef: the low-resolution viewport, the runtime sprite builder, the pixel UI and the synthesized audio.
+Far Shores is a pixel-art fishing game for Godot 4.7. You travel to 14 places around the world and catch the fish that live there. Each place has its own scenery, water, weather, music and 7 or 8 real species. One of them is a special visitor that comes now and then. You can also enter fishing contests against rival anglers. The game uses the engine of Little Reef: the low-resolution viewport, the runtime sprite builder, the pixel UI and the synthesized audio.
 
 ## Play in the browser
 
@@ -23,6 +23,27 @@ godot --path .
 5. Hold to reel the fish in. Let go when the line meter turns red, or the line snaps. A slack line lets the fish spit the hook.
 6. Sell the fish or release it. Legendary fish always go back to the water, and the fishing club pays a bounty.
 
+## Special visitors
+
+Each place has one special visitor. It never lives there. Every 4 to 8 minutes it swims in, and a pink toast tells you. It stays for about 2 minutes, then it leaves.
+
+- Pink sparkles show where it swims.
+- It takes any bait. It is curious and often swims over to look at your bait.
+- It fights hard. Upgrade the line before you try for a big one.
+- A visitor sells for about 2,000 to 7,000 coins. Protected species, such as the sawfish, go back to the water for the same bounty.
+
+## Contests
+
+A contest is a 3-minute match against 3 rival anglers. The rivals row out in their own boats, or stand at holes in the ice. They hook the same fish that you see, so the fish near their bait can go to them.
+
+1. Tap CONTEST in the top left corner, or press `C`. The panel shows the type of contest, the rivals and the prizes.
+2. Pay the entry fee with JOIN. The fee depends on the place.
+3. Fish as normal. The scoreboard in the top right corner shows the time and the standings.
+4. When the time runs out, fish that are on the line still count. The result card shows your place.
+5. Collect the prize. 1st place pays 6 times the fee, 2nd pays 3 times and 3rd pays 1.5 times.
+
+There are 3 types of contest. "Heaviest bag" counts the total weight. "Biggest fish" counts the single heaviest fish. "Most fish" counts the number of fish. Rivals do not take legendary fish or special visitors. You cannot travel during a contest. A new contest opens 30 seconds after the last one ends.
+
 ## Controls
 
 | Action | Desktop | Touch |
@@ -32,28 +53,30 @@ godot --path .
 | World map | `M`, or the MAP button | The MAP button |
 | Fish book | `B`, or the BOOK button | MENU, then BOOK |
 | Sell or release a catch | `Enter` to sell, `R` to release | The SELL and RELEASE buttons |
+| Contest panel | `C`, or the CONTEST button | The CONTEST button |
+| Collect a contest prize | `Enter` | The COLLECT button |
 | Close a panel | `Esc` | The CLOSE button |
 | Name a fish | Point at it | Tap it |
 | Full screen | `F11` | The full-screen button in the top bar, or in MENU on a thin screen |
 
 ## The world
 
-| Place | Country | Platform | Legend |
-| --- | --- | --- | --- |
-| Lofoten | Norway | Pier | Atlantic Halibut |
-| Loch Ness | Scotland | Rocks | Ferox Trout |
-| Amalfi Coast | Italy | Stone quay | Atlantic Bluefin Tuna |
-| Suruga Bay | Japan | Pier | Giant Oarfish |
-| Kootenay Lake | Canada | Pier | White Sturgeon |
-| Florida Keys | United States | Flats skiff | Tarpon |
-| Nile at Giza | Egypt | Felucca | Nile Perch |
-| Li River | China | Bamboo raft | Chinese Sturgeon |
-| Ayutthaya | Thailand | Longtail boat | Mekong Giant Catfish |
-| Amazon River | Brazil | River bank | Arapaima |
-| Great Barrier Reef | Australia | Charter boat | Black Marlin |
-| Cabo San Lucas | Mexico | Charter boat | Striped Marlin |
-| Ilulissat | Greenland | Ice floe | Greenland Shark |
-| Ross Sea | Antarctica | Hole in the sea ice | Antarctic Toothfish |
+| Place | Country | Platform | Legend | Special visitor |
+| --- | --- | --- | --- | --- |
+| Lofoten | Norway | Pier | Atlantic Halibut | Opah |
+| Loch Ness | Scotland | Rocks | Ferox Trout | Wels Catfish |
+| Amalfi Coast | Italy | Stone quay | Atlantic Bluefin Tuna | Swordfish |
+| Suruga Bay | Japan | Pier | Giant Oarfish | Goblin Shark |
+| Kootenay Lake | Canada | Pier | White Sturgeon | Gerrard Rainbow Trout |
+| Florida Keys | United States | Flats skiff | Tarpon | Smalltooth Sawfish |
+| Nile at Giza | Egypt | Felucca | Nile Perch | Marbled Lungfish |
+| Li River | China | Bamboo raft | Chinese Sturgeon | Guilin Golden-line Fish |
+| Ayutthaya | Thailand | Longtail boat | Mekong Giant Catfish | Giant Freshwater Stingray |
+| Amazon River | Brazil | River bank | Arapaima | Piraiba |
+| Great Barrier Reef | Australia | Charter boat | Black Marlin | Humphead Wrasse |
+| Cabo San Lucas | Mexico | Charter boat | Striped Marlin | Giant Sea Bass |
+| Ilulissat | Greenland | Ice floe | Greenland Shark | Roughhead Grenadier |
+| Ross Sea | Antarctica | Hole in the sea ice | Antarctic Toothfish | Antarctic Snailfish |
 
 Each place keeps local time from its real UTC offset. When you fly from Norway to Japan, the clock jumps 8 hours. Some fish bite only at night, at dawn or at dusk. Rain and snow make fish bite more often.
 
@@ -112,6 +135,9 @@ Pass these after `--` on the command line:
 | `--sheet=out.png` | Saves every fish sprite into one image |
 | `--autoplay=300` | Plays by itself for 300 seconds of game time and prints each catch |
 | `--perf` | Prints the frame rate and the script time every 5 seconds |
+| `--contest` | Joins a contest at the start place |
+| `--visit` | Sends in the special visitor at once |
+| `--speed=3` | Runs the game 3 times faster |
 | `--vsize=390x664` | Shows the layout of a screen of that size in UI pixels, such as a phone |
 
 Example:
@@ -127,7 +153,8 @@ The game saves to `user://far-shores-save.json`. In a browser, this file is in I
 ## Project layout
 
 - `scripts/game.gd` holds the simulation: time, weather, fish, the cast, the fight, the economy and saving.
-- `scripts/species.gd` holds the 97 species. `scripts/places.gd` holds the 14 places.
+- `scripts/species.gd` holds the 111 species. `scripts/places.gd` holds the 14 places.
+- `scripts/contest.gd` runs a contest: the rivals, their boats, their fishing and the score.
 - `scripts/sprites.gd` builds the fish, the angler, decor, flags and bait icons at runtime.
 - `scripts/scenery.gd` paints the backdrop of each place.
 - `scripts/sky_view.gd`, `scripts/scene_view.gd` and `scripts/overlay_view.gd` draw the world into a low-resolution viewport.
